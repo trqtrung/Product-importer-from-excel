@@ -1,0 +1,11 @@
+C:\Users\Dell\Documents\Visual Studio 2017\Projects\ExcelImporter\ExcelImporter\obj\Debug\netcoreapp2.0\ExcelImporter.csprojResolveAssemblyReference.cache
+C:\Users\Dell\Documents\Visual Studio 2017\Projects\ExcelImporter\ExcelImporter\obj\Debug\netcoreapp2.0\ExcelImporter.csproj.CoreCompileInputs.cache
+C:\Users\Dell\Documents\Visual Studio 2017\Projects\ExcelImporter\ExcelImporter\obj\Debug\netcoreapp2.0\ExcelImporter.AssemblyInfoInputs.cache
+C:\Users\Dell\Documents\Visual Studio 2017\Projects\ExcelImporter\ExcelImporter\obj\Debug\netcoreapp2.0\ExcelImporter.AssemblyInfo.cs
+C:\Users\Dell\Documents\Visual Studio 2017\Projects\ExcelImporter\ExcelImporter\bin\Debug\netcoreapp2.0\ExcelImporter.deps.json
+C:\Users\Dell\Documents\Visual Studio 2017\Projects\ExcelImporter\ExcelImporter\bin\Debug\netcoreapp2.0\ExcelImporter.runtimeconfig.json
+C:\Users\Dell\Documents\Visual Studio 2017\Projects\ExcelImporter\ExcelImporter\bin\Debug\netcoreapp2.0\ExcelImporter.runtimeconfig.dev.json
+C:\Users\Dell\Documents\Visual Studio 2017\Projects\ExcelImporter\ExcelImporter\bin\Debug\netcoreapp2.0\ExcelImporter.dll
+C:\Users\Dell\Documents\Visual Studio 2017\Projects\ExcelImporter\ExcelImporter\bin\Debug\netcoreapp2.0\ExcelImporter.pdb
+C:\Users\Dell\Documents\Visual Studio 2017\Projects\ExcelImporter\ExcelImporter\obj\Debug\netcoreapp2.0\ExcelImporter.dll
+C:\Users\Dell\Documents\Visual Studio 2017\Projects\ExcelImporter\ExcelImporter\obj\Debug\netcoreapp2.0\ExcelImporter.pdb
