@@ -13,7 +13,7 @@ namespace ExcelImporter
 
     public class Program
     {
-        static string version = "v20180408";
+        static string version = "v20180416";
         static string sourcePath = @"C:\\Excel\";
         static string ttaMariaDBConnectionString = @"Database=tta;Data Source=127.0.0.1;User Id=root;Password=trung1992;SslMode=none";
 
@@ -83,27 +83,37 @@ namespace ExcelImporter
                                 ////4. DataSet - Create column names from first row
                                 //excelReader.IsFirstRowAsColumnNames = true;
                                 //DataSet result = excelReader.AsDataSet();
-                                int i = 0;
+                                int i = -1;
 
                                 Console.OutputEncoding = Encoding.UTF8;
-
+                                ColumnIndexItem col = new ColumnIndexItem();
+                                col.ProductName = -1;
+                                
                                 while (reader.Read())
                                 {
-
+                                    i++;
                                     // 1. Use the reader methods
                                     //do
                                     //{
-                                    Console.WriteLine(i);
-                                    ColumnIndexItem col = new ColumnIndexItem();
-                                    col = null;
 
-                                    for (int j = 0; j < 18; j++)
+
+                                    if (col.ProductName < 0)
                                     {
-                                        Console.Write(reader.GetValue(j) + " - ");
+                                        Console.WriteLine(i);
 
-                                        while (col == null)
+                                        for (int j = 0; j < 18; j++)
                                         {
-                                            switch (reader.GetValue(j).ToString().ToLower())
+                                            string colName = "";
+
+                                            if (reader.GetValue(j) == null)
+                                                continue;
+                                            else
+                                                colName = reader.GetValue(j).ToString();
+
+                                            if (j == 0 && colName.ToLower() != "product name")
+                                                break;
+
+                                            switch (colName.ToLower())
                                             {
                                                 case "product name":
                                                     col.ProductName = j;
@@ -151,10 +161,127 @@ namespace ExcelImporter
                                                     col.Code = j;
                                                     break;
                                             }
-                                        
                                         }
-                                        
                                     }
+                                    else
+                                    {
+                                        ProductItem p = new ProductItem();
+
+                                        p.Name = reader.GetString(col.ProductName);
+                                        p.TypeName = reader.GetString(col.Type);
+                                        p.BrandName = reader.GetString(col.Brand);
+
+                                        if (string.IsNullOrEmpty(p.Name) || string.IsNullOrEmpty(p.TypeName) || string.IsNullOrEmpty(p.BrandName))
+                                        {
+                                            Console.WriteLine(i + " - Missing Name or Type or Brand. Skip record.");
+                                            continue;
+                                        }
+
+                                        int typeID = GetValueID(p.TypeName.Trim(), "product.type");
+
+                                        if (typeID == 0)
+                                        {
+                                            OptionItem o = new OptionItem();
+                                            o.Key = "product.type";
+                                            o.Name = p.TypeName;
+
+                                            typeID = (int)InsertOption(o);
+                                        }
+                                        p.TypeID = typeID;
+
+                                        int brandID = GetValueID(p.BrandName.Trim(), "product.brand");
+                                        if (brandID == 0)
+                                        {
+                                            OptionItem o = new OptionItem();
+                                            o.Key = "product.brand";
+                                            o.Name = p.BrandName;
+
+                                            brandID = (int)InsertOption(o);
+                                        }
+                                        p.BrandID = brandID;
+
+                                        bool exists = CheckProductExists(p);
+
+                                        if (exists)
+                                            continue;
+
+                                        string supplier = "";
+
+                                        if (reader.GetValue(col.Supplier) == null)
+                                        {
+                                            supplier = "Unknown";
+                                        }
+                                        else
+                                        {
+
+                                            supplier = reader.GetValue(col.Supplier).ToString();
+                                        }
+
+                                        int supID = FindSupplierID(supplier);
+
+                                        if (supID == 0)
+                                        {
+                                            SupplierItem s = new SupplierItem();
+                                            s.Name = "";
+                                            s.Phone = "";
+
+                                            if (IsEnglishLetter(supplier[0]))
+                                                s.Name = supplier;
+                                            else if (!IsEnglishLetter(supplier[supplier.Length - 1]))
+                                                s.Phone = supplier;
+
+                                            supID = (int)InsertSupplier(s);
+                                        }
+
+                                        p.SupplierID = supID;
+
+                                    //if (!reader.IsDBNull(col.Length))
+                                    //        p.Length = reader.GetDecimal(col.Length);
+
+                                        if (!reader.IsDBNull(col.Height))
+                                            p.Height = reader.GetDouble(col.Height);
+
+                                        if (!reader.IsDBNull(col.Weight))
+                                            p.Weight = reader.GetDouble(col.Weight);
+
+                                        if (!reader.IsDBNull(col.Width))
+                                            p.Width = reader.GetDouble(col.Width);
+
+                                        if (!reader.IsDBNull(col.SizeMM))
+                                            p.Size = reader.GetDouble(col.SizeMM);
+
+                                        if (!reader.IsDBNull(col.Colour))
+                                            p.Colour = reader.GetString(col.Colour);
+
+                                        if (!reader.IsDBNull(col.Code))
+                                            p.Code = reader.GetString(col.Code);
+
+                                        if(!reader.IsDBNull(col.Price))
+                                        {
+                                            p.Price = reader.GetDouble(col.Price);
+                                            p.PriceDate = DateTime.Now;
+                                        }
+
+                                        long recordID = InsertProduct(p);
+
+                                        if (recordID > 0)
+                                        {
+                                            p.ID = (int)recordID;
+                                            
+
+                                            InsertPrice(p);
+
+                                            Console.WriteLine(i + " - Inserted " + p.Name);
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine(i+ " - Error - " + p.Name);
+                                        }
+                                    }
+                                    
+
+                                    
+
                                     //if(i > 3 && i < 6)
                                     //{
                                     //    ProductItem item = new ProductItem();
@@ -168,7 +295,7 @@ namespace ExcelImporter
                                     //        Console.WriteLine("oops");
                                     //}
                                     //Console.WriteLine(i + " - " +reader.GetString(0) + " - " + reader.GetString(1) + " - "+ reader.GetString(2) +" - "+ reader.GetString(3));
-                                    i++;
+                                    
 
                                     //} while (reader.NextResult());
                                 }
@@ -195,10 +322,26 @@ namespace ExcelImporter
                     connection.Open();
             //        Console.WriteLine("ServerVersion: " + connection.ServerVersion +
             //"\nState: " + connection.State.ToString());
-                    MySqlCommand cmd = new MySqlCommand("INSERT INTO products (name, price, type) VALUES (@name,@price,@type)", connection);
+                    MySqlCommand cmd = new MySqlCommand("INSERT INTO products (name, price, type, sku, details, colours, weight, height, width, length, size, code, brand, created) VALUES (@name,@price,@type,@sku, @details, @colours, @weight, @height, @width, @length, @size, @code, @brand, NOW())", connection);
                     cmd.Parameters.Add("@name", item.Name);
-                    cmd.Parameters.Add("@type", item.Type);
+                    cmd.Parameters.Add("@type", item.TypeID);
                     cmd.Parameters.Add("@price", item.Price);
+
+                    cmd.Parameters.Add("@sku", item.SKU);
+                    cmd.Parameters.Add("@details", item.Details);
+                    cmd.Parameters.Add("@colours", item.Colour);
+
+                    cmd.Parameters.Add("@weight", item.Weight);
+                    cmd.Parameters.Add("@height", item.Height);
+                    cmd.Parameters.Add("@width", item.Weight);
+
+                    cmd.Parameters.Add("@length", item.Length);
+                    cmd.Parameters.Add("@size", item.Size);
+                    cmd.Parameters.Add("@code", item.Code);
+
+                    cmd.Parameters.AddWithValue("@brand", item.BrandID);
+
+
                     cmd.Prepare();
 
                     cmd.ExecuteNonQuery();
@@ -214,9 +357,36 @@ namespace ExcelImporter
             return 0;
         }
 
+        static long InsertPrice(ProductItem item)
+        {
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(ttaMariaDBConnectionString))
+                {
+                    connection.Open();
+                    MySqlCommand cmd = new MySqlCommand("INSERT INTO prices (product_id, price, supplier_id, price_date, created) VALUES (@product_id,@price,@supplier_id, @price_date, NOW())", connection);
+                    cmd.Parameters.Add("@product_id", item.ID);
+                    cmd.Parameters.Add("@price", item.Price);
+                    cmd.Parameters.Add("@supplier_id", item.SupplierID);
+                    cmd.Parameters.Add("@price_date", item.PriceDate);
+                    cmd.Prepare();
+
+                    cmd.ExecuteNonQuery();
+                    long id = cmd.LastInsertedId;
+                    connection.Close();
+                    return id;
+                }
+            }
+            catch (Exception ex)
+            {
+
+            }
+            return 0;
+        }
+
         public static int GetValueID(string name, string key)
         {
-            string sql = "SELECT id FROM options_lists WHERE name = @name AND key =@key";
+            string sql = "SELECT id FROM options_lists WHERE name = @name AND `key` = @key";
             using (MySqlConnection connection = new MySqlConnection(ttaMariaDBConnectionString))
             {
                 connection.Open();
@@ -246,7 +416,7 @@ namespace ExcelImporter
                 {
                     connection.Open();
 
-                    MySqlCommand cmd = new MySqlCommand("INSERT INTO options_lists (name, key, value) VALUES (@name,@key,@value)", connection);
+                    MySqlCommand cmd = new MySqlCommand("INSERT INTO options_lists (`name`, `key`, `value`) VALUES (@name,@key,@value)", connection);
 
                     cmd.Parameters.Add("@name", item.Name);
                     cmd.Parameters.Add("@key", item.Key);
@@ -268,9 +438,87 @@ namespace ExcelImporter
 
         public static bool CheckProductExists(ProductItem item)
         {
-            string sql = "SELECT id FROM products WHERE brand = @brand AND type=@type AND name LIKE @name";
+            string sql = "SELECT id FROM products WHERE brand = @brand AND type = @type AND name LIKE @name";
 
+            using (MySqlConnection connection = new MySqlConnection(ttaMariaDBConnectionString))
+            {
+                connection.Open();
+
+                MySqlCommand cmd = new MySqlCommand(sql, connection);
+                cmd.Parameters.AddWithValue("@name", item.Name);
+                cmd.Parameters.AddWithValue("@brand", item.BrandID);
+                cmd.Parameters.AddWithValue("@type", item.TypeID);
+                using (MySqlDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        reader.Read();
+
+                        return true;
+                    }
+                }
+                connection.Close();
+            }
             return false;
+        }
+
+        public static int FindSupplierID(string something)
+        {
+            string sql = "SELECT id FROM suppliers WHERE `name` LIKE @caigi OR `phone` LIKE @caigi OR `email` LIKE @caigi";
+            using (MySqlConnection connection = new MySqlConnection(ttaMariaDBConnectionString))
+            {
+                connection.Open();
+
+                MySqlCommand cmd = new MySqlCommand(sql, connection);
+                cmd.Parameters.AddWithValue("@caigi", "'%"+something+"%'");
+
+                using (MySqlDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        reader.Read();
+
+                        return Convert.ToInt32(reader["id"]);
+                    }
+                }
+                connection.Close();
+            }
+            return 0;
+        }
+
+        public static long InsertSupplier(SupplierItem item)
+        {
+            string sql = "INSERT INTO suppliers (name, phone) VALUES (@name, @phone)";
+
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(ttaMariaDBConnectionString))
+                {
+                    connection.Open();
+
+                    MySqlCommand cmd = new MySqlCommand(sql, connection);
+
+                    cmd.Parameters.Add("@name", item.Name);
+                    cmd.Parameters.Add("@phone", item.Phone);
+
+                    cmd.Prepare();
+
+                    cmd.ExecuteNonQuery();
+                    long id = cmd.LastInsertedId;
+                    connection.Close();
+                    return id;
+                }
+            }
+            catch (Exception ex)
+            {
+
+            }
+            return 0;
+        }
+
+        public static bool IsEnglishLetter(char c)
+        {
+            return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
         }
     }
 
@@ -279,11 +527,22 @@ namespace ExcelImporter
         public int ID { get; set; }
         public string Name { get; set; }
         public double Price { get; set; }
+        public DateTime PriceDate { get; set; }
         public string SKU { get; set; }
         public string Colour { get; set; }
-        public double Weight { get; set; }
+        public double Weight { get; set; }//gram
         public double Size { get; set; }
-        public int Type { get; set; }
+        public int TypeID { get; set; }
+        public string TypeName { get; set; }
+        public int SupplierID { get; set; }
+        public int SupplierName { get; set; }
+        public int BrandID { get; set; }
+        public string BrandName { get; set; }
+        public string Code { get; set; }
+        public string Details { get; set; }
+        public double Height { get; set; }//cm
+        public double Length { get; set; }//cm
+        public double Width { get; set; }//cm
     }
     public class ColumnIndexItem
     {
@@ -309,5 +568,14 @@ namespace ExcelImporter
         public string Name { get; set; }
         public string Key { get; set; }
         public string Value { get; set; }
+    }
+    public class SupplierItem
+    {
+        public int ID { get; set; }
+        public string Name { get; set; }
+        public string Phone { get; set; }
+        public string Address { get; set; }
+        public string Email { get; set; }
+        public string Website { get; set; }
     }
 }
