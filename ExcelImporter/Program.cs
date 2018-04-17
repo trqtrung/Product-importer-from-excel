@@ -1,21 +1,20 @@
-﻿using System;
-using ExcelDataReader;
+﻿using ExcelDataReader;
+using MySql.Data.MySqlClient;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Data;
 using System.Text;
-using MySql.Data.MySqlClient;
 
 namespace ExcelImporter
 {
-    
+
 
     public class Program
     {
-        static string version = "v20180416";
+        static string version = "v20180417";
         static string sourcePath = @"C:\\Excel\";
-        static string ttaMariaDBConnectionString = @"Database=tta;Data Source=127.0.0.1;User Id=root;Password=trung1992;SslMode=none";
+        static string ttaMariaDBConnectionString = @"Database=tta;Data Source=127.0.0.1;User Id=trung;Password=123456;SslMode=none";
 
         static void Main(string[] args)
         {
