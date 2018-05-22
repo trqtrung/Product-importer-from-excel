@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ExcelImporter
 {
@@ -12,7 +13,7 @@ namespace ExcelImporter
 
     public class Program
     {
-        static string version = "v20180417";
+        static string version = "v20180418";
         static string sourcePath = @"C:\\Excel\";
         static string ttaMariaDBConnectionString = @"Database=tta;Data Source=127.0.0.1;User Id=trung;Password=123456;SslMode=none";
 
@@ -99,8 +100,8 @@ namespace ExcelImporter
                                     if (col.ProductName < 0)
                                     {
                                         Console.WriteLine(i);
-
-                                        for (int j = 0; j < 18; j++)
+                                        int fields = reader.FieldCount;
+                                        for (int j = 0; j < fields; j++)
                                         {
                                             string colName = "";
 
@@ -122,6 +123,9 @@ namespace ExcelImporter
                                                     break;
                                                 case "type":
                                                     col.Type = j;
+                                                    break;
+                                                case "sub type":
+                                                    col.SubType = j;
                                                     break;
                                                 case "colour":
                                                     col.Colour = j;
@@ -176,7 +180,10 @@ namespace ExcelImporter
                                             continue;
                                         }
 
-                                        int typeID = GetValueID(p.TypeName.Trim(), "product.type");
+                                        //p.Name = p.Name.Replace("  ", " ").Trim();
+                                        p.Name = Regex.Replace(p.Name, @"\s+", " ").Trim();
+
+                                        int typeID = GetValueID(p.TypeName.Trim(), "product.type","");
 
                                         if (typeID == 0)
                                         {
@@ -188,7 +195,26 @@ namespace ExcelImporter
                                         }
                                         p.TypeID = typeID;
 
-                                        int brandID = GetValueID(p.BrandName.Trim(), "product.brand");
+                                        if(!reader.IsDBNull(col.SubType))
+                                        {
+                                            string subType = reader.GetString(col.SubType);
+
+                                            int subTypeID = GetValueID(subType.Trim(), "product.subtype", typeID.ToString());
+
+                                            if (subTypeID == 0)
+                                            {
+                                                OptionItem o = new OptionItem();
+                                                o.Key = "product.subtype";
+                                                o.Name = subType;
+                                                o.Value = typeID.ToString();
+
+                                                subTypeID = (int)InsertOption(o);
+                                            }
+
+                                            p.SubTypeID = subTypeID;
+                                        }
+
+                                        int brandID = GetValueID(p.BrandName.Trim(), "product.brand","");
                                         if (brandID == 0)
                                         {
                                             OptionItem o = new OptionItem();
@@ -234,8 +260,8 @@ namespace ExcelImporter
 
                                         p.SupplierID = supID;
 
-                                    //if (!reader.IsDBNull(col.Length))
-                                    //        p.Length = reader.GetDecimal(col.Length);
+                                        if (!reader.IsDBNull(col.Length))
+                                            p.Length = reader.GetDouble(col.Length);
 
                                         if (!reader.IsDBNull(col.Height))
                                             p.Height = reader.GetDouble(col.Height);
@@ -257,7 +283,7 @@ namespace ExcelImporter
 
                                         if(!reader.IsDBNull(col.Price))
                                         {
-                                            p.Price = reader.GetDouble(col.Price);
+                                            p.Price = reader.GetDouble(col.Price) * 1000;
                                             p.PriceDate = DateTime.Now;
                                         }
 
@@ -321,9 +347,10 @@ namespace ExcelImporter
                     connection.Open();
             //        Console.WriteLine("ServerVersion: " + connection.ServerVersion +
             //"\nState: " + connection.State.ToString());
-                    MySqlCommand cmd = new MySqlCommand("INSERT INTO products (name, price, type, sku, details, colours, weight, height, width, length, size, code, brand, created) VALUES (@name,@price,@type,@sku, @details, @colours, @weight, @height, @width, @length, @size, @code, @brand, NOW())", connection);
+                    MySqlCommand cmd = new MySqlCommand("INSERT INTO products (name, price, type, sub_type, sku, details, colours, weight, height, width, length, size, code, brand, created) VALUES (@name,@price,@type,@sub_type, @sku, @details, @colours, @weight, @height, @width, @length, @size, @code, @brand, NOW())", connection);
                     cmd.Parameters.Add("@name", item.Name);
                     cmd.Parameters.Add("@type", item.TypeID);
+                    cmd.Parameters.Add("sub_type", item.SubTypeID);
                     cmd.Parameters.Add("@price", item.Price);
 
                     cmd.Parameters.Add("@sku", item.SKU);
@@ -383,9 +410,13 @@ namespace ExcelImporter
             return 0;
         }
 
-        public static int GetValueID(string name, string key)
+        public static int GetValueID(string name, string key, string value)
         {
-            string sql = "SELECT id FROM options_lists WHERE name = @name AND `key` = @key";
+            string sql = "SELECT id FROM options_lists WHERE name = @name AND `key` = @key" ;
+            if(!string.IsNullOrEmpty(value))
+            {
+                sql += " AND `value` = @value";
+            }
             using (MySqlConnection connection = new MySqlConnection(ttaMariaDBConnectionString))
             {
                 connection.Open();
@@ -393,6 +424,10 @@ namespace ExcelImporter
                 MySqlCommand cmd = new MySqlCommand(sql, connection);
                 cmd.Parameters.AddWithValue("@name", name);
                 cmd.Parameters.AddWithValue("@key", key);
+                if (!string.IsNullOrEmpty(value))
+                {
+                    cmd.Parameters.AddWithValue("@value", value);
+                }
                 using (MySqlDataReader reader = cmd.ExecuteReader())
                 {
                     if (reader.HasRows)
@@ -542,12 +577,14 @@ namespace ExcelImporter
         public double Height { get; set; }//cm
         public double Length { get; set; }//cm
         public double Width { get; set; }//cm
+        public int SubTypeID { get; set; }
     }
     public class ColumnIndexItem
     {
         public int ProductName { get; set; }
         public int Code { get; set; }
         public int Type { get; set; }
+        public int SubType { get; set; }
         public int Brand { get; set; }
         public int SizeInch { get; set; }
         public int SizeMM { get; set; }
